@@ -1,4 +1,4 @@
-  
+
 #include "cuda.h"
 //#include "cuda_runtime_api.h"
 #include "gpumemioctl.h"
@@ -35,9 +35,9 @@ int main(int argc, char *argv[])
     int res = -1;
     unsigned count=0x0A000000;
 
-    int fd = open("/dev/"GPUMEM_DRIVER_NAME, O_RDWR, 0);
+    int fd = open("/dev/" GPUMEM_DRIVER_NAME, O_RDWR, 0);
     if (fd < 0) {
-        printf("Error open file %s\n", "/dev/"GPUMEM_DRIVER_NAME);
+        printf("Error open file %s\n", "/dev/" GPUMEM_DRIVER_NAME);
         return -1;
     }
 
@@ -56,7 +56,8 @@ int main(int argc, char *argv[])
 
     // get compute capabilities and the devicename
     int major = 0, minor = 0;
-    checkError( cuDeviceComputeCapability(&major, &minor, device));
+    checkError(cuDeviceGetAttribute(&major, CU_DEVICE_ATTRIBUTE_COMPUTE_CAPABILITY_MAJOR, device));
+    checkError(cuDeviceGetAttribute(&minor, CU_DEVICE_ATTRIBUTE_COMPUTE_CAPABILITY_MINOR, device));
     fprintf(stderr, "Compute capability: %d.%d\n", major, minor);
 
     size_t global_mem = 0;
