@@ -111,7 +111,7 @@ int main(int argc, char *argv[]) {
     state->page_count = lock.page_count;
     res = ioctl(fd, IOCTL_GPUMEM_STATE, state);
     if (res < 0) {
-        fprintf(stderr, "Error in IOCTL_GPUDMA_MEM_UNLOCK\n");
+        fprintf(stderr, "Error in IOCTL_GPUMEM_STATE\n");
         goto do_unlock;
     }
 
