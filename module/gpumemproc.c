@@ -97,12 +97,11 @@ static int gpumem_proc_release(struct inode *inode, struct file *file)
 
 //--------------------------------------------------------------------
 
-static const struct file_operations gpumem_proc_fops = {
-    .owner          = THIS_MODULE,
-    .open           = gpumem_proc_open,
-    .read           = seq_read,
-    .llseek         = seq_lseek,
-    .release        = gpumem_proc_release,
+static const struct proc_ops gpumem_proc_fops = {
+    .proc_open           = gpumem_proc_open,
+    .proc_read           = seq_read,
+    .proc_lseek          = seq_lseek,
+    .proc_release        = gpumem_proc_release,
 };
 
 //--------------------------------------------------------------------
