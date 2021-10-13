@@ -1,6 +1,5 @@
 
 #include "cuda.h"
-//#include "cuda_runtime_api.h"
 #include "gpumemioctl.h"
 
 #include <dirent.h>
@@ -88,8 +87,7 @@ int main(int argc, char *argv[]) {
         goto do_free_memory;
     }
 
-    fprintf(stderr, "Press enter to lock\n");
-    // getchar();
+    fprintf(stderr, "Going to lock\n");
 
     // TODO: add kernel driver interaction...
     lock.addr = dptr;
@@ -100,7 +98,7 @@ int main(int argc, char *argv[]) {
         goto do_free_attr;
     }
 
-    fprintf(stderr, "Press enter to get state. We lock %ld pages\n", lock.page_count);
+    fprintf(stderr, "Getting state. We lock %ld pages\n", lock.page_count);
     // getchar();
 
     statesize = (lock.page_count * sizeof(uint64_t) + sizeof(struct gpudma_state_t));
@@ -141,10 +139,6 @@ int main(int argc, char *argv[]) {
     }
 
     {
-        // const void* d_idata = (const void*)dptr;
-        // cudaMemcpy(h_odata, d_idata, size, cudaMemcpyDeviceToHost);
-        // cudaDeviceSynchronize();
-
         cuMemcpyDtoH(h_odata, dptr, size);
         cuCtxSynchronize();
 
@@ -173,8 +167,7 @@ int main(int argc, char *argv[]) {
     }
 
 
-    fprintf(stderr, "Press enter to unlock\n");
-    // getchar();
+    fprintf(stderr, "Going to unlock\n");
 
 do_unlock:
     unlock.handle = lock.handle;
