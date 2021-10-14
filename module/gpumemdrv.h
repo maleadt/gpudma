@@ -15,16 +15,14 @@
 //-----------------------------------------------------------------------------
 
 struct gpumem_t {
-    struct list_head list;
-    void *handle;
-    u64 virt_start;
+    struct list_head list;          // needed for gpumem_t to be part of table_list
+    u64 virt_start;                 // start page address of the virtual memory
     nvidia_p2p_page_table_t *page_table;
 };
 
 //-----------------------------------------------------------------------------
 
 struct gpumem {
-    struct semaphore sem;
     struct proc_dir_entry *proc;
     struct list_head table_list;    // list of gpumem_t entries
 };
