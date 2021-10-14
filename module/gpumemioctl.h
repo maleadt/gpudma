@@ -31,25 +31,25 @@
 //-----------------------------------------------------------------------------
 
 struct gpudma_lock_t {
-    void *handle;
-    uint64_t addr;
-    uint64_t size;
-    size_t page_count;
+    void *handle;       // output: handle to this mapping for subsequent ioctls
+    uint64_t addr;      // input: virtual GPU address
+    uint64_t size;      // input: size of GPU buffer
+    size_t page_count;  // output: number of pages mapped to physical memory
 };
 
 //-----------------------------------------------------------------------------
 
 struct gpudma_unlock_t {
-    void *handle;
+    void *handle;       // input: the handle for a mapping
 };
 
 //-----------------------------------------------------------------------------
 
-struct gpudma_state_t {
-    void *handle;
-    size_t page_count;
-    size_t page_size;
-    uint64_t pages[1];
+struct gpudma_state_t { // variable-size struct; number of pages should match gpudma_lock_t
+    void *handle;       // input: the handle for a mapping
+    size_t page_count;  // input & output: number of pages mapped to physical memory
+    size_t page_size;   // output: size of each page
+    uint64_t pages[1];  // output: list of pages
 };
 
 //-----------------------------------------------------------------------------

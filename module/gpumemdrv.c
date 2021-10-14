@@ -65,7 +65,6 @@ static long gpumem_ioctl(struct file *file, unsigned int cmd, unsigned long arg)
     }
 
     switch (cmd) {
-
     case IOCTL_GPUMEM_LOCK:
         error = ioctl_mem_lock(dev, arg);
         break;
@@ -94,6 +93,10 @@ int gpumem_mmap(struct file *file, struct vm_area_struct *vma) {
 
     vma->vm_page_prot = pgprot_noncached(vma->vm_page_prot);
 
+    // remap physical memory to the virtual memory area the kernel allocated.
+    // we map one page at a time, in its entirety, so pass vm_start as the start
+    // address and the size of the entire virtual memory area as the length.
+    // the offset represents the start address of the physical page to map.
     if (remap_pfn_range(vma, vma->vm_start, vma->vm_pgoff, size, vma->vm_page_prot)) {
         pr_err("%s(): error in remap_page_range.\n", __func__);
         return -EAGAIN;
@@ -105,7 +108,6 @@ int gpumem_mmap(struct file *file, struct vm_area_struct *vma) {
 //-----------------------------------------------------------------------------
 
 struct file_operations gpumem_fops = {
-
     .owner = THIS_MODULE,
     .unlocked_ioctl = gpumem_ioctl,
     .compat_ioctl = gpumem_ioctl,
@@ -117,7 +119,6 @@ struct file_operations gpumem_fops = {
 //-----------------------------------------------------------------------------
 
 static struct miscdevice gpumem_dev = {
-
     MISC_DYNAMIC_MINOR, GPUMEM_DRIVER_NAME, &gpumem_fops};
 
 //-----------------------------------------------------------------------------

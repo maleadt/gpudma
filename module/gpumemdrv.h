@@ -26,7 +26,7 @@ struct gpumem_t {
 struct gpumem {
     struct semaphore sem;
     struct proc_dir_entry *proc;
-    struct list_head table_list;
+    struct list_head table_list;    // list of gpumem_t entries
 };
 
 //-----------------------------------------------------------------------------

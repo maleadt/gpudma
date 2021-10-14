@@ -4,7 +4,10 @@ using Base: Filesystem, JL_O_RDWR
 using Printf
 using Mmap
 
-struct gpudma_lock
+
+## ioctl argument structs and helper functions
+
+mutable struct gpudma_lock
     handle::Ptr{Cvoid}
     addr::UInt64
     size::UInt64
@@ -12,11 +15,17 @@ struct gpudma_lock
 end
 gpudma_lock(addr, size) = gpudma_lock(C_NULL, addr, size, 0)
 
-struct gpudma_unlock
+ioctl_mem_lock(fd, arg::gpudma_lock) =
+    ccall(:ioctl, Cint, (Cint, Cint, Ref{gpudma_lock}), fd, IOCTL_GPUMEM_LOCK, arg)
+
+mutable struct gpudma_unlock
     handle::Ptr{Cvoid}
 end
 
-struct gpudma_state{N}
+ioctl_mem_unlock(fd, arg::gpudma_unlock) =
+    ccall(:ioctl, Cint, (Cint, Cint, Ref{gpudma_unlock}), fd, IOCTL_GPUMEM_UNLOCK, arg)
+
+mutable struct gpudma_state{N}
     handle::Ptr{Cvoid}
     page_count::Csize_t
     page_size::Csize_t
@@ -24,6 +33,12 @@ struct gpudma_state{N}
 end
 gpudma_state(handle, page_count) =
     gpudma_state{Int(page_count)}(handle, page_count, 0, ntuple(i->0, page_count))
+
+ioctl_mem_state(fd, arg::gpudma_state{N}) where N =
+    ccall(:ioctl, Cint, (Cint, Cint, Ref{gpudma_state{N}}), fd, IOCTL_GPUMEM_STATE, arg)
+
+
+## main application
 
 # TODO: implement IO(), see e.g.
 #       https://github.com/vpelletier/python-ioctl-opt/blob/master/ioctl_opt/__init__.py
@@ -34,7 +49,8 @@ const IOCTL_GPUMEM_STATE = 26380
 const GPUMEM_DRIVER_NAME = "gpumem"
 
 function main()
-    @show file = Filesystem.open("/dev/$GPUMEM_DRIVER_NAME", JL_O_RDWR, 0)
+    # open the driver
+    file = Filesystem.open("/dev/$GPUMEM_DRIVER_NAME", JL_O_RDWR, 0)
     file_fd = reinterpret(Cint, fd(file))
 
     println("Total devices: ", length(devices()))
@@ -49,6 +65,7 @@ function main()
         println("64-bit Memory Address support")
     end
 
+    # allocate GPU memory
     sz = 2^20
     #data = CuArray{UInt8}(undef, sz)
     # XXX: doesn't seem to work with our asynchronously-allocated memory?
@@ -62,28 +79,36 @@ function main()
 
     println("Going to lock")
 
-    lock = Ref(gpudma_lock(dptr, sz))
-    res = ccall(:ioctl, Cint, (Cint, Cint, Ptr{gpudma_lock}), file_fd, IOCTL_GPUMEM_LOCK, lock)
+    # pin this memory, making it accessible to third-party DMA engines
+    lock = gpudma_lock(dptr, sz)
+    res = ioctl_mem_lock(file_fd, lock)
     if res != 0
         println("Error in IOCTL_GPUMEM_LOCK")
         @goto do_free_attr
     end
 
-    println("Getting state. We lock $(lock[].page_count) pages")
-    state = Ref(gpudma_state(lock[].handle, lock[].page_count))
-    res = ccall(:ioctl, Cint, (Cint, Cint, Ptr{Cvoid}), file_fd, IOCTL_GPUMEM_STATE, state)
+    # fetch the physical page addresses of our memory buffer.
+    # typically, a device driver in kernel space would use these addresses,
+    # not pass them to userspace.
+    println("Getting state. We lock $(lock.page_count) pages")
+    state = gpudma_state(lock.handle, lock.page_count)
+    res = ioctl_mem_state(file_fd, state)
     if res < 0
         println("Error in IOCTL_GPUMEM_STATE")
         @goto do_unlock
     end
 
-    println("Page count $(state[].page_count)")
-    println("Page size $(state[].page_size)")
+    println("Page count $(state.page_count)")
+    println("Page size $(state.page_size)")
 
+    # print the physical addresses that correspond to each virtual page
     count = 0x0A000000
-    for i in 1:state[].page_count
-        @printf("%02d: 0x%lx\n", i, state[].pages[i])
-        va = mmap(file, Vector{UInt8}, (state[].page_size,), state[].pages[i]; grow=false)
+    for i in 1:state.page_count
+        @printf("%02d: 0x%lx\n", i, state.pages[i])
+
+        # to emulate a DMA transfer, the gpumem driver supports accessing
+        # physical memory using mmap
+        va = mmap(file, Vector{UInt8}, (state.page_size,), state.pages[i]; grow=false)
         let va = reinterpret(UInt32, va)
             for j in 1:length(va)
                 va[j] = count
@@ -91,11 +116,10 @@ function main()
             end
         end
         finalize(va)
-        @printf("Physical Address 0x%lx -> Virtual Address %p\n", state[].pages[i], pointer(va))
+        @printf("Physical Address 0x%lx -> Virtual Address %p\n", state.pages[i], pointer(va))
     end
 
     h_odata = reinterpret(UInt32, Array(data))
-    synchronize(context())
 
     expect_data = 0x0A000000
     error_cnt = 0
@@ -119,8 +143,8 @@ function main()
     println("Going to unlock")
 
 @label do_unlock
-    unlock = Ref(gpudma_unlock(lock[].handle))
-    res = ccall(:ioctl, Cint, (Cint, Cint, Ptr{gpudma_unlock}), file_fd, IOCTL_GPUMEM_UNLOCK, unlock)
+    unlock = gpudma_unlock(lock.handle)
+    res = ioctl_mem_unlock(file_fd, unlock)
     if res < 0
         println("Error in IOCTL_GPUMEM_UNLOCK")
     end
